@@ -11,6 +11,10 @@
 class ByteStream {
   private:
     // Your code here -- add private members as necessary.
+    size_t read_pos, write_pos, capacity;
+    size_t read_bytes, write_bytes;
+    char * buffer;
+    bool inputEnded;
 
     // Hint: This doesn't need to be a sophisticated data structure at
     // all, but if any of your tests are taking longer than a second,
