@@ -43,7 +43,11 @@ size_t ByteStream::write(const string &data) {
 //! \param[in] len bytes will be copied from the output side of the buffer
 string ByteStream::peek_output(const size_t len) const {
     size_t actualLen = min(buffer_size(), len);
-    return {subStr(buffer, capacity, read_pos, actualLen)};
+    string ans = "";
+    for (size_t i = 0; i < actualLen; i ++) {
+        ans += buffer[(i + read_pos) % capacity];
+    }
+    return ans;
 }
 
 //! \param[in] len bytes will be removed from the output side of the buffer
@@ -58,7 +62,10 @@ void ByteStream::pop_output(const size_t len) {
 //! \returns a string
 std::string ByteStream::read(const size_t len) {
     size_t actualLen = min(buffer_size(), len);
-    string ans{subStr(buffer, capacity, read_pos, actualLen)};
+    string ans = "";
+    for (size_t i = 0; i < actualLen; i ++) {
+        ans += buffer[(i + read_pos) % capacity];
+    }
     read_pos = (read_pos + actualLen) % capacity;
     read_bytes += actualLen;
     return ans;

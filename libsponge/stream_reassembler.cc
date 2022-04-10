@@ -43,18 +43,22 @@ void StreamReassembler::push_substring(const string &data, const uint64_t index,
     uint64_t actual_push_len = min(data.length() - start_write_pos, max_end_index - start);
     uint64_t end = start + actual_push_len;
     uint64_t preStart = _cur_write_index;
-//    std::cout << "===================================== " << " index " << index << std::endl;
-//    std::cout << " start " << start << " end " << end << std::endl;
+
     auto it = _segmentIndexList.begin();
     while (it != _segmentIndexList.end()) {
         uint64_t preEnd = it->start_;
-//        std::cout << "===================================== " << " preStart " << preStart << std::endl;
-//        std::cout << "===================================== " << " preEnd " << preEnd << std::endl;
-        if (preStart < start && end < preEnd) {
-            _segmentIndexList.insert(it, SegmentIndex(start, end, _un_assembly.size()));
+        if (preStart <= start && end <= preEnd) {
+            if (!_free_un_assembly_index.empty()) {
+                uint64_t _index = _free_un_assembly_index.front();
+                _free_un_assembly_index.pop_front();
+                _segmentIndexList.insert(it, SegmentIndex(start, end, _index));
+                _un_assembly[_index] = data.substr(start_write_pos, actual_push_len);
+            } else {
+                _segmentIndexList.insert(it, SegmentIndex(start, end, _un_assembly.size()));
+                _un_assembly.push_back(data.substr(start_write_pos, actual_push_len));
+            }
             _un_assembly_size += actual_push_len;
-            _un_assembly.push_back(data.substr(start_write_pos, actual_push_len));
-            return;
+            break;
         }
 
         if (preStart >= end) {
@@ -69,9 +73,16 @@ void StreamReassembler::push_substring(const string &data, const uint64_t index,
         if (preStart >= start && preEnd <= end) {
             uint64_t sectionSize = preEnd - preStart;
             left_can_write_capacity -= sectionSize;
-            _segmentIndexList.insert(it, SegmentIndex(preStart, preEnd, _un_assembly.size()));
+            if (!_free_un_assembly_index.empty()) {
+                uint64_t _index = _free_un_assembly_index.front();
+                _free_un_assembly_index.pop_front();
+                _segmentIndexList.insert(it, SegmentIndex(preStart, preEnd, _index));
+                _un_assembly[_index] = data.substr(start_write_pos + preStart - start, sectionSize);
+            } else {
+                _segmentIndexList.insert(it, SegmentIndex(preStart, preEnd, _un_assembly.size()));
+                _un_assembly.push_back(data.substr(start_write_pos + preStart - start, sectionSize));
+            }
             _un_assembly_size += sectionSize;
-            _un_assembly.push_back(data.substr(start_write_pos + preStart - start, sectionSize));
             if (left_can_write_capacity == 0) {
                 break;
             }
@@ -82,15 +93,29 @@ void StreamReassembler::push_substring(const string &data, const uint64_t index,
 
         if (start < preStart) {
             uint64_t sectionSize = end - preStart;
-            _segmentIndexList.insert(it, SegmentIndex(preStart, end, _un_assembly.size()));
+            if (!_free_un_assembly_index.empty()) {
+                uint64_t _index = _free_un_assembly_index.front();
+                _free_un_assembly_index.pop_front();
+                _segmentIndexList.insert(it, SegmentIndex(preStart, end, _index));
+                _un_assembly[_index] = data.substr(start_write_pos + preStart - start, sectionSize);
+            } else {
+                _segmentIndexList.insert(it, SegmentIndex(preStart, end, _un_assembly.size()));
+                _un_assembly.push_back(data.substr(start_write_pos + preStart - start, sectionSize));
+            }
             _un_assembly_size += sectionSize;
-            _un_assembly.push_back(data.substr(start_write_pos + preStart - start, sectionSize));
             break;
         } else {
             uint64_t sectionSize = preEnd - start;
-            _segmentIndexList.insert(it, SegmentIndex(start, preEnd, _un_assembly.size()));
+            if (!_free_un_assembly_index.empty()) {
+                uint64_t _index = _free_un_assembly_index.front();
+                _free_un_assembly_index.pop_front();
+                _segmentIndexList.insert(it, SegmentIndex(start, preEnd, _index));
+                _un_assembly[_index] = data.substr(start_write_pos, sectionSize);
+            } else {
+                _segmentIndexList.insert(it, SegmentIndex(start, preEnd, _un_assembly.size()));
+                _un_assembly.push_back(data.substr(start_write_pos, sectionSize));
+            }
             _un_assembly_size += sectionSize;
-            _un_assembly.push_back(data.substr(start_write_pos, sectionSize));
             left_can_write_capacity -= sectionSize;
             if (left_can_write_capacity == 0) {
                 break;
@@ -105,35 +130,44 @@ void StreamReassembler::push_substring(const string &data, const uint64_t index,
         auto itr = --_segmentIndexList.end();
         if (itr->end_ < end && start <= itr->end_) {
             uint64_t sectionSize = end - itr->end_;
-            _segmentIndexList.emplace_back(itr->end_, end, _un_assembly.size());
+            if (!_free_un_assembly_index.empty()) {
+                uint64_t _index = _free_un_assembly_index.front();
+                _free_un_assembly_index.pop_front();
+                _segmentIndexList.emplace_back(SegmentIndex(itr->end_, end, _index));
+                _un_assembly[_index] = data.substr(start_write_pos + itr->end_ - start, sectionSize);
+            } else {
+                _segmentIndexList.emplace_back(itr->end_, end, _un_assembly.size());
+                _un_assembly.push_back(data.substr(start_write_pos + itr->end_ - start, sectionSize));
+            }
             _un_assembly_size += sectionSize;
-            _un_assembly.push_back(data.substr(start_write_pos + itr->end_ - start, sectionSize));
         } else if (itr->end_ < end) {
             uint64_t sectionSize = end - start;
-            _segmentIndexList.emplace_back(SegmentIndex(start, end, _un_assembly.size()));
+            if (!_free_un_assembly_index.empty()) {
+                uint64_t _index = _free_un_assembly_index.front();
+                _free_un_assembly_index.pop_front();
+                _segmentIndexList.emplace_back(SegmentIndex(start, end, _index));
+                _un_assembly[_index] = data.substr(start_write_pos, sectionSize);
+            } else {
+                _segmentIndexList.emplace_back(SegmentIndex(start, end, _un_assembly.size()));
+                _un_assembly.push_back(data.substr(start_write_pos, sectionSize));
+            }
             _un_assembly_size += sectionSize;
-            _un_assembly.push_back(data.substr(start_write_pos, sectionSize));
         }
     }
-
-//    std::cout << "================= mergeSegment pre ==================== " << " index " << index << std::endl;
-//    for (auto itrr : _segmentIndexList) {
-//        std::cout << itrr.start_ << " " << itrr.end_ << " " << itrr.index_ << " " << std::endl;
-//    }
-//    std::cout << "=================== mergeSegment pre ==================" << std::endl;
 
     // merge segment
     mergeSegment();
 
-//    std::cout << "================= mergeSegment after ==================== " << "index " << index << std::endl;
-//    for (auto itrr : _segmentIndexList) {
-//        std::cout << itrr.start_ << " " << itrr.end_ << " " << itrr.index_ << " " << std::endl;
-//    }
-//    std::cout << "================== mergeSegment after ===================" << std::endl;
-
     if (_segmentIndexList.empty()) {
-        _segmentIndexList.emplace_back(SegmentIndex(start, start + actual_push_len, _un_assembly.size()));
-        _un_assembly.emplace_back(data.substr(start_write_pos, actual_push_len));
+        if (!_free_un_assembly_index.empty()) {
+            uint64_t _index = _free_un_assembly_index.front();
+            _free_un_assembly_index.pop_front();
+            _segmentIndexList.emplace_back(SegmentIndex(start, start + actual_push_len, _index));
+            _un_assembly[_index] = data.substr(start_write_pos, actual_push_len);
+        } else {
+            _segmentIndexList.emplace_back(SegmentIndex(start, start + actual_push_len, _un_assembly.size()));
+            _un_assembly.emplace_back(data.substr(start_write_pos, actual_push_len));
+        }
         _un_assembly_size += actual_push_len;
     }
 
@@ -175,3 +209,7 @@ void StreamReassembler::mergeSegment() {
 size_t StreamReassembler::unassembled_bytes() const { return _un_assembly_size; }
 
 bool StreamReassembler::empty() const { return _un_assembly_size == 0; }
+
+std::list<SegmentIndex> StreamReassembler::getSegments() {
+    return _segmentIndexList;
+}

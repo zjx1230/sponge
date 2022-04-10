@@ -66,6 +66,8 @@ class StreamReassembler {
     bool empty() const;
 
     void mergeSegment();
+
+    std::list<SegmentIndex> getSegments();  // for test
 };
 
 #endif  // SPONGE_LIBSPONGE_STREAM_REASSEMBLER_HH
