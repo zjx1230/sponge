@@ -3,6 +3,10 @@
 
 #include <cstdint>
 #include <ostream>
+#include <iostream>
+#include <algorithm>
+
+const uint64_t UINT_MOD = (1ul << 32);
 
 //! \brief A 32-bit integer, expressed relative to an arbitrary initial sequence number (ISN)
 //! \note This is used to express TCP sequence numbers (seqno) and acknowledgment numbers (ackno)
